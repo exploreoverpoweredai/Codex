@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio Tracker (India)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Personal Portfolio Tracker</h1>
+      <p>Track your Indian stock investments in one simple dashboard.</p>
+    </header>
+
+    <section class="card form-card">
+      <h2>Add Investment</h2>
+      <form id="investmentForm" class="form-grid">
+        <label>
+          Stock Name
+          <input type="text" id="stockName" required placeholder="Reliance Industries" />
+        </label>
+        <label>
+          Ticker Symbol
+          <input type="text" id="ticker" required placeholder="RELIANCE.NS" maxlength="18" />
+        </label>
+        <label>
+          Quantity
+          <input type="number" id="quantity" required min="0.0001" step="0.0001" placeholder="10" />
+        </label>
+        <label>
+          Buy Price (₹)
+          <input type="number" id="buyPrice" required min="0" step="0.01" placeholder="2500" />
+        </label>
+        <label>
+          Buy Date
+          <input type="date" id="buyDate" required />
+        </label>
+        <button type="submit" class="btn-primary">Add Investment</button>
+      </form>
+      <p class="helper-text top-gap">Use NSE/BSE Yahoo symbols like <strong>RELIANCE.NS</strong>, <strong>TCS.NS</strong>, <strong>INFY.NS</strong>.</p>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="card metric-card">
+        <h3>Total Invested</h3>
+        <p id="totalInvested" class="metric">₹0.00</p>
+      </article>
+      <article class="card metric-card">
+        <h3>Current Portfolio Value</h3>
+        <p id="portfolioValue" class="metric">₹0.00</p>
+      </article>
+      <article class="card metric-card">
+        <h3>Total Profit / Loss</h3>
+        <p id="totalPL" class="metric">₹0.00</p>
+      </article>
+    </section>
+
+    <section class="card table-card">
+      <div class="table-header">
+        <h2>Portfolio</h2>
+        <div class="update-block">
+          <button id="refreshPricesBtn" class="btn-secondary" type="button">Refresh Prices</button>
+          <p id="lastUpdated" class="helper-text">Last updated: Not yet</p>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table id="portfolioTable">
+          <thead>
+            <tr>
+              <th>Stock</th>
+              <th>Ticker</th>
+              <th>Quantity</th>
+              <th>Buy Price</th>
+              <th>Buy Date</th>
+              <th>Live Price</th>
+              <th>Invested Amount</th>
+              <th>Current Value</th>
+              <th>Profit/Loss</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="portfolioBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="charts-grid">
+      <article class="card chart-card">
+        <h2>Asset Allocation</h2>
+        <canvas id="allocationChart"></canvas>
+      </article>
+      <article class="card chart-card">
+        <h2>Portfolio Value Over Time</h2>
+        <canvas id="valueChart"></canvas>
+      </article>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
