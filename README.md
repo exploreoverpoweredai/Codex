@@ -1,38 +1,34 @@
-# Personal Portfolio Tracker (India)
+# Personal Portfolio Tracker
 
-A simple, beginner-friendly web application to track personal Indian stock investments.
+A simple, beginner-friendly web application to track personal stock investments.
 
 ## What this app does
 
 - Lets you add stock investments manually using:
   - Stock name
-  - Ticker symbol (for example: `RELIANCE.NS`, `TCS.NS`)
+  - Ticker symbol
   - Quantity
   - Buy price
   - Buy date
-- Fetches **live stock prices** from a free public Yahoo Finance quote API endpoint (via the AllOrigins CORS proxy).
-- Refreshes live prices automatically every **60 seconds**.
-- Shows a **Last updated** timestamp for price refreshes.
-- Handles invalid symbols by showing a friendly error for that stock row.
 - Shows a dashboard with:
   - Total invested amount
   - Current portfolio value
   - Total profit/loss
 - Displays a portfolio table with per-stock details:
   - Invested amount
-  - Live current value
   - Profit/loss
+  - Editable current price (so you can update market value manually)
 - Includes charts:
   - Pie chart for asset allocation
   - Line chart for portfolio value over time
-- Saves holdings to `localStorage`, so data persists after refresh.
+- Saves all data to `localStorage`, so it stays after page refresh.
 
 ## How to run it
 
 1. Clone or download this repository.
 2. Open `index.html` in your browser.
 
-That’s it—no build step required.
+That’s it—no build step or installation required.
 
 ## Folder structure
 
@@ -40,6 +36,6 @@ That’s it—no build step required.
 .
 ├── index.html      # Main app layout
 ├── styles.css      # App styling (responsive UI)
-├── script.js       # App logic, localStorage, live prices, charts
+├── script.js       # App logic, localStorage, charts, calculations
 └── README.md       # Project documentation
 ```

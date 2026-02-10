@@ -1,15 +1,10 @@
 const STORAGE_KEY = "portfolioInvestments";
-const PRICE_REFRESH_INTERVAL_MS = 60000;
-const YAHOO_QUOTE_API = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
-const CORS_PROXY_API = "https://api.allorigins.win/raw?url=";
 
 const investmentForm = document.getElementById("investmentForm");
 const portfolioBody = document.getElementById("portfolioBody");
 const totalInvestedEl = document.getElementById("totalInvested");
 const portfolioValueEl = document.getElementById("portfolioValue");
 const totalPLEl = document.getElementById("totalPL");
-const lastUpdatedEl = document.getElementById("lastUpdated");
-const refreshPricesBtn = document.getElementById("refreshPricesBtn");
 
 let allocationChart;
 let valueChart;
@@ -35,33 +30,23 @@ investmentForm.addEventListener("submit", (event) => {
     quantity,
     buyPrice,
     buyDate,
-    livePrice: null,
-    priceError: "",
+    currentPrice: buyPrice,
   };
 
   investments.push(investment);
   persistAndRender();
   investmentForm.reset();
-  refreshLivePrices();
-});
-
-refreshPricesBtn.addEventListener("click", () => {
-  refreshLivePrices();
 });
 
 function loadInvestments() {
   const rawData = localStorage.getItem(STORAGE_KEY);
-  if (!rawData) return [];
+  if (!rawData) {
+    return [];
+  }
 
   try {
     const parsed = JSON.parse(rawData);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.map((item) => ({
-      ...item,
-      livePrice: typeof item.livePrice === "number" ? item.livePrice : null,
-      priceError: item.priceError || "",
-    }));
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -78,89 +63,17 @@ function persistAndRender() {
   renderCharts();
 }
 
-async function fetchStockPrices(tickers) {
-  if (tickers.length === 0) return {};
-
-  const yahooUrl = `${YAHOO_QUOTE_API}${encodeURIComponent(tickers.join(","))}`;
-  const proxiedUrl = `${CORS_PROXY_API}${encodeURIComponent(yahooUrl)}`;
-  const response = await fetch(proxiedUrl);
-  if (!response.ok) {
-    throw new Error(`Price API failed (${response.status})`);
-  }
-
-  const data = await response.json();
-  const result = data?.quoteResponse?.result || [];
-  const bySymbol = {};
-
-  result.forEach((quote) => {
-    if (quote.symbol && typeof quote.regularMarketPrice === "number") {
-      bySymbol[quote.symbol.toUpperCase()] = quote.regularMarketPrice;
-    }
-  });
-
-  return bySymbol;
-}
-
-async function refreshLivePrices() {
-  if (investments.length === 0) {
-    lastUpdatedEl.textContent = "Last updated: No holdings";
-    return;
-  }
-
-  refreshPricesBtn.disabled = true;
-  refreshPricesBtn.textContent = "Refreshing...";
-
-  const uniqueTickers = [...new Set(investments.map((item) => item.ticker.toUpperCase()))];
-
-  try {
-    const priceMap = await fetchStockPrices(uniqueTickers);
-
-    investments = investments.map((item) => {
-      const symbol = item.ticker.toUpperCase();
-      const livePrice = priceMap[symbol];
-
-      if (typeof livePrice === "number") {
-        return {
-          ...item,
-          livePrice,
-          priceError: "",
-        };
-      }
-
-      return {
-        ...item,
-        livePrice: null,
-        priceError: "Invalid ticker or market data unavailable",
-      };
-    });
-
-    lastUpdatedEl.textContent = `Last updated: ${new Date().toLocaleString("en-IN")}`;
-  } catch (error) {
-    investments = investments.map((item) => ({
-      ...item,
-      priceError: "Could not fetch prices right now",
-    }));
-
-    lastUpdatedEl.textContent = `Last updated: Failed (${new Date().toLocaleTimeString("en-IN")})`;
-  } finally {
-    refreshPricesBtn.disabled = false;
-    refreshPricesBtn.textContent = "Refresh Prices";
-    persistAndRender();
-  }
-}
-
 function renderTable() {
   portfolioBody.innerHTML = "";
 
   if (investments.length === 0) {
-    portfolioBody.innerHTML = '<tr><td colspan="10">No investments yet. Add your first stock above.</td></tr>';
+    portfolioBody.innerHTML = '<tr><td colspan="9">No investments yet. Add your first stock above.</td></tr>';
     return;
   }
 
   investments.forEach((item) => {
     const investedAmount = item.quantity * item.buyPrice;
-    const liveOrFallbackPrice = typeof item.livePrice === "number" ? item.livePrice : item.buyPrice;
-    const currentValue = item.quantity * liveOrFallbackPrice;
+    const currentValue = item.quantity * item.currentPrice;
     const profitLoss = currentValue - investedAmount;
 
     const row = document.createElement("tr");
@@ -171,16 +84,39 @@ function renderTable() {
       <td>${formatCurrency(item.buyPrice)}</td>
       <td>${formatDate(item.buyDate)}</td>
       <td>
-        ${typeof item.livePrice === "number" ? formatCurrency(item.livePrice) : "—"}
-        ${item.priceError ? `<span class="error-text">${item.priceError}</span>` : ""}
+        <input
+          class="current-price-input"
+          type="number"
+          min="0"
+          step="0.01"
+          value="${item.currentPrice}"
+          data-id="${item.id}"
+          aria-label="Current price for ${item.ticker}"
+        />
       </td>
       <td>${formatCurrency(investedAmount)}</td>
-      <td>${formatCurrency(currentValue)}</td>
       <td class="${profitLoss >= 0 ? "pl-positive" : "pl-negative"}">${formatCurrency(profitLoss)}</td>
       <td><button class="btn-remove" data-remove-id="${item.id}">Remove</button></td>
     `;
 
     portfolioBody.appendChild(row);
+  });
+
+  portfolioBody.querySelectorAll(".current-price-input").forEach((input) => {
+    input.addEventListener("change", (event) => {
+      const id = event.target.dataset.id;
+      const value = parseFloat(event.target.value);
+
+      if (Number.isNaN(value) || value < 0) {
+        event.target.value = "0";
+        return;
+      }
+
+      investments = investments.map((item) =>
+        item.id === id ? { ...item, currentPrice: value } : item
+      );
+      persistAndRender();
+    });
   });
 
   portfolioBody.querySelectorAll(".btn-remove").forEach((button) => {
@@ -196,8 +132,7 @@ function renderDashboard() {
   const totals = investments.reduce(
     (acc, item) => {
       const invested = item.quantity * item.buyPrice;
-      const liveOrFallbackPrice = typeof item.livePrice === "number" ? item.livePrice : item.buyPrice;
-      const current = item.quantity * liveOrFallbackPrice;
+      const current = item.quantity * item.currentPrice;
       acc.invested += invested;
       acc.current += current;
       return acc;
@@ -206,6 +141,7 @@ function renderDashboard() {
   );
 
   const totalPL = totals.current - totals.invested;
+
   totalInvestedEl.textContent = formatCurrency(totals.invested);
   portfolioValueEl.textContent = formatCurrency(totals.current);
   totalPLEl.textContent = formatCurrency(totalPL);
@@ -218,23 +154,30 @@ function renderCharts() {
 }
 
 function renderAllocationChart() {
-  const labels = investments.map((item) => item.ticker);
-  const values = investments.map((item) => {
-    const liveOrFallbackPrice = typeof item.livePrice === "number" ? item.livePrice : item.buyPrice;
-    return item.quantity * liveOrFallbackPrice;
-  });
+  const labels = investments.map((item) => `${item.ticker}`);
+  const values = investments.map((item) => item.quantity * item.currentPrice);
 
-  if (allocationChart) allocationChart.destroy();
+  if (allocationChart) {
+    allocationChart.destroy();
+  }
 
   allocationChart = new Chart(document.getElementById("allocationChart"), {
     type: "pie",
     data: {
       labels,
-      datasets: [{ data: values, backgroundColor: generateColors(values.length), borderWidth: 1 }],
+      datasets: [
+        {
+          data: values,
+          backgroundColor: generateColors(values.length),
+          borderWidth: 1,
+        },
+      ],
     },
     options: {
       plugins: {
-        legend: { position: "bottom" },
+        legend: {
+          position: "bottom",
+        },
       },
     },
   });
@@ -250,32 +193,35 @@ function renderValueChart() {
   const values = [];
 
   sorted.forEach((item) => {
-    const liveOrFallbackPrice = typeof item.livePrice === "number" ? item.livePrice : item.buyPrice;
-    runningTotal += item.quantity * liveOrFallbackPrice;
+    runningTotal += item.quantity * item.buyPrice;
     labels.push(formatDate(item.buyDate));
     values.push(round2(runningTotal));
   });
 
-  if (valueChart) valueChart.destroy();
+  if (valueChart) {
+    valueChart.destroy();
+  }
 
   valueChart = new Chart(document.getElementById("valueChart"), {
     type: "line",
     data: {
       labels,
-      datasets: [{
-        label: "Portfolio Value (₹)",
-        data: values,
-        borderColor: "#365df0",
-        backgroundColor: "rgba(54, 93, 240, 0.2)",
-        fill: true,
-        tension: 0.25,
-      }],
+      datasets: [
+        {
+          label: "Portfolio Value ($)",
+          data: values,
+          borderColor: "#365df0",
+          backgroundColor: "rgba(54, 93, 240, 0.2)",
+          fill: true,
+          tension: 0.25,
+        },
+      ],
     },
     options: {
       scales: {
         y: {
           ticks: {
-            callback: (value) => `₹${value}`,
+            callback: (value) => `$${value}`,
           },
         },
       },
@@ -289,20 +235,30 @@ function renderValueChart() {
 }
 
 function generateColors(length) {
-  const palette = ["#365df0", "#2db87d", "#f9a826", "#8f5af0", "#e64980", "#00a8cc", "#ff6b6b", "#4dabf7"];
+  const palette = [
+    "#365df0",
+    "#2db87d",
+    "#f9a826",
+    "#8f5af0",
+    "#e64980",
+    "#00a8cc",
+    "#ff6b6b",
+    "#4dabf7",
+  ];
+
   return Array.from({ length }, (_, index) => palette[index % palette.length]);
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat("en-IN", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "INR",
+    currency: "USD",
     maximumFractionDigits: 2,
   }).format(value || 0);
 }
 
 function formatDate(value) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+  return new Date(value + "T00:00:00").toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -310,7 +266,9 @@ function formatDate(value) {
 }
 
 function formatNumber(value) {
-  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 4 }).format(value);
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 4,
+  }).format(value);
 }
 
 function round2(value) {
@@ -318,5 +276,3 @@ function round2(value) {
 }
 
 persistAndRender();
-refreshLivePrices();
-setInterval(refreshLivePrices, PRICE_REFRESH_INTERVAL_MS);
